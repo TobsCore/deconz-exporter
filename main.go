@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,20 +18,30 @@ import (
 )
 
 func init() {
-	flag.StringVar(&token, "token", "", "The API token for deconz")
-	flag.StringVar(&deconzHost, "deconz_host", "localhost", "The host address of the deconz instance")
-	flag.IntVar(&deconzPort, "deconz_port", 0, "The port on which deconz is available")
-	flag.IntVar(&port, "port", 2112, "The port on which this application is started")
+	token = os.Getenv("DECONZ_TOKEN")
+	deconzHost = os.Getenv("DECONZ_HOST")
+	parsedDeconzPort, err := strconv.Atoi(os.Getenv("DECONZ_PORT"))
+	if err != nil {
+		log.Fatalf("%s must be integer", "DECONZ_PORT")
+	}
+	deconzPort = parsedDeconzPort
+	parsedPort, err := strconv.Atoi(os.Getenv("DECONZ_APP_PORT"))
+	if err != nil {
+		log.Fatalf("%s must be integer", "DECONZ_APP_PORT")
+	}
+	port = parsedPort
 	flag.BoolVar(&verbose, "verbose", false, "Verbose logging")
 }
 
-func evalFlags() error {
+func evalVars() error {
 	if token == "" {
-		return fmt.Errorf("deconz token is required")
+		return fmt.Errorf("DECONZ_TOKEN is required")
 	} else if deconzHost == "" {
-		return fmt.Errorf("deconz host is required")
+		return fmt.Errorf("DECONZ_HOST is required")
 	} else if deconzPort == 0 {
-		return fmt.Errorf("deconz port is required")
+		return fmt.Errorf("DECONZ_PORT is required")
+	} else if port == 0 {
+		return fmt.Errorf("DECONZ_APP_PORT is required")
 	}
 
 	return nil
@@ -37,7 +49,7 @@ func evalFlags() error {
 
 func main() {
 	flag.Parse()
-	if err := evalFlags(); err != nil {
+	if err := evalVars(); err != nil {
 		log.Fatalf("%s", err)
 	}
 	recordMetrics()
