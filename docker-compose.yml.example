@@ -1,0 +1,14 @@
+version: "3"
+services:
+  deconz-exporter:
+    image: tobscore/deconz-exporter
+    expose:
+        - "8080"
+    ports:
+        - "8080:8080"
+    container_name: deconz-exporter
+    environment:
+      - DECONZ_TOKEN=YOURTOKEN
+      - DECONZ_HOST=HOST
+      - DECONZ_PORT=1702
+      - DECONZ_APP_PORT=8080

@@ -11,3 +11,6 @@ deconz-exporter
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+# Working docker compose
+docker-compose.yml
