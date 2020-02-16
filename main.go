@@ -17,18 +17,19 @@ import (
 
 func init() {
 	flag.StringVar(&token, "token", "", "The API token for deconz")
-	flag.StringVar(&host, "host", "localhost", "The host address of the deconz instance")
-	flag.IntVar(&port, "port", 0, "The port on which deconz is available")
+	flag.StringVar(&deconzHost, "deconz_host", "localhost", "The host address of the deconz instance")
+	flag.IntVar(&deconzPort, "deconz_port", 0, "The port on which deconz is available")
+	flag.IntVar(&port, "port", 2112, "The port on which this application is started")
 	flag.BoolVar(&verbose, "verbose", false, "Verbose logging")
 }
 
 func evalFlags() error {
 	if token == "" {
-		return fmt.Errorf("token is required")
-	} else if host == "" {
-		return fmt.Errorf("host is required")
-	} else if port == 0 {
-		return fmt.Errorf("port is required")
+		return fmt.Errorf("deconz token is required")
+	} else if deconzHost == "" {
+		return fmt.Errorf("deconz host is required")
+	} else if deconzPort == 0 {
+		return fmt.Errorf("deconz port is required")
 	}
 
 	return nil
@@ -54,17 +55,19 @@ func serve() {
             </body>
             </html>`))
 	})
-	fmt.Printf("Starting Server on %s:%d\n", "localhost", 2112)
-	log.Fatal(http.ListenAndServe(":2112", nil))
+	instance := fmt.Sprintf(":%d", port)
+	fmt.Println("Starting Server on", instance)
+	log.Fatal(http.ListenAndServe(instance, nil))
 }
 
 var (
-	host      = "192.168.0.222"
-	port      = 1702
-	token     = ""
-	verbose   = false
-	labels    = []string{"name", "uid", "manufacturer", "model", "type"}
-	tmpMetric = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	deconzHost = ""
+	deconzPort = 0
+	port       = 0
+	token      = ""
+	verbose    = false
+	labels     = []string{"name", "uid", "manufacturer", "model", "type"}
+	tmpMetric  = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "deconz",
 		Subsystem: "sensor",
 		Name:      "temperature",
@@ -99,7 +102,7 @@ var (
 func recordMetrics() {
 	url := url.URL{
 		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%d", host, port),
+		Host:   fmt.Sprintf("%s:%d", deconzHost, deconzPort),
 		Path:   fmt.Sprintf("api/%s/sensors", token),
 	}
 	go func() {
