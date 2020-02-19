@@ -25,11 +25,16 @@ func init() {
 		log.Fatalf("%s must be integer", "DECONZ_PORT")
 	}
 	deconzPort = parsedDeconzPort
-	parsedPort, err := strconv.Atoi(os.Getenv("DECONZ_APP_PORT"))
-	if err != nil {
-		log.Fatalf("%s must be integer", "DECONZ_APP_PORT")
+	portEnv := os.Getenv("DECONZ_APP_PORT")
+	if portEnv != "" {
+		// If the environment variable is set, use this value.
+		// If it is not set, the default value for the port is used.
+		parsedPort, err := strconv.Atoi(portEnv)
+		if err != nil {
+			log.Fatalf("%s must be integer", "DECONZ_APP_PORT")
+		}
+		port = parsedPort
 	}
-	port = parsedPort
 	flag.BoolVar(&verbose, "verbose", false, "Verbose logging")
 }
 
@@ -72,13 +77,20 @@ func serve() {
 	log.Fatal(http.ListenAndServe(instance, nil))
 }
 
+const (
+	// DefaultPort describes the port the application will use if no dedicated port
+	// is defined as an environment variable
+	DefaultPort int = 8080
+)
+
 var (
 	deconzHost = ""
 	deconzPort = 0
-	port       = 0
+	port       = DefaultPort
 	token      = ""
 	verbose    = false
 	labels     = []string{"name", "uid", "manufacturer", "model", "type"}
+	labelsArbi = []string{"name", "manufacturer", "model"}
 	tmpMetric  = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "deconz",
 		Subsystem: "sensor",
@@ -90,7 +102,7 @@ var (
 		Subsystem: "sensor",
 		Name:      "battery",
 		Help:      "Battery level of sensor in percent",
-	}, labels)
+	}, labelsArbi)
 	humidMetric = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "deconz",
 		Subsystem: "sensor",
@@ -103,6 +115,12 @@ var (
 		Name:      "pressure",
 		Help:      "Air pressure in hectopascal (hPa)",
 	}, labels)
+	lastUpdMetric = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "deconz",
+		Subsystem: "sensor",
+		Name:      "sinceUpdate",
+		Help:      "The time since the last update that was received from this sensor",
+	}, labelsArbi)
 	errorCtr = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: "deconz",
 		Subsystem: "sensor",
@@ -134,19 +152,36 @@ func recordMetrics() {
 
 					switch sensor.Type {
 					case "ZHATemperature":
-						btryMetric.With(labels).Set(float64(sensor.Config.Battery))
 						tmpMetric.With(labels).Set(float64(sensor.State.Temperature) / 100.0)
 					case "ZHAHumidity":
 						humidMetric.With(labels).Set(float64(sensor.State.Humidity) / 100.0)
 					case "ZHAPressure":
 						pressureMetric.With(labels).Set(float64(sensor.State.Pressure))
 					}
+
+					collectArbitraryData(sensor, labels)
 				}
 			}
 
 			time.Sleep(5 * time.Second)
 		}
 	}()
+}
+
+func collectArbitraryData(sensor Sensor, labels prometheus.Labels) {
+	delete(labels, "type")
+	delete(labels, "uid")
+	btryMetric.With(labels).Set(float64(sensor.Config.Battery))
+
+	// Parse Date
+	format := "2006-01-02T15:04:05"
+	lastUpdate, err := time.Parse(format, sensor.State.Lastupdated)
+	if err != nil {
+		log.Fatalf("Failed to parse date %s, %s", sensor.State.Lastupdated, err)
+	}
+
+	timeDiff := time.Now().Sub(lastUpdate)
+	lastUpdMetric.With(labels).Set(float64(timeDiff.Seconds()))
 }
 
 func pollSensors(url url.URL) (map[string]Sensor, error) {
