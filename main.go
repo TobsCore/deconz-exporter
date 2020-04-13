@@ -9,12 +9,15 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/gorilla/websocket"
 )
 
 func init() {
@@ -57,8 +60,9 @@ func main() {
 	if err := evalVars(); err != nil {
 		log.Fatalf("%s", err)
 	}
-	recordMetrics()
-	serve()
+	//recordMetrics()
+	openWS()
+	//serve()
 }
 
 func serve() {
@@ -128,6 +132,55 @@ var (
 		Help:      "Failures to retrieve data from API",
 	})
 )
+
+func openWS() {
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+
+	u := url.URL{Scheme: "ws", Host: "192.168.0.222:8443", Path: ""}
+	log.Printf("connecting to %s", u.String())
+
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		log.Fatal("dial:", err)
+	}
+	defer c.Close()
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		for {
+			_, message, err := c.ReadMessage()
+			if err != nil {
+				log.Println("read:", err)
+				return
+			}
+			log.Printf("recv: %s", message)
+		}
+	}()
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-interrupt:
+			log.Println("interrupt")
+
+			// Cleanly close the connection by sending a close message and then
+			// waiting (with timeout) for the server to close the connection.
+			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			if err != nil {
+				log.Println("write close:", err)
+				return
+			}
+			select {
+			case <-done:
+			case <-time.After(time.Second):
+			}
+			return
+		}
+	}
+}
 
 // recordMetrics starts a runner, that will collect the metrics and place them
 // in the corresponding struct, so can fetch these metrics. For this to work,
