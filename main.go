@@ -61,8 +61,8 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 	//recordMetrics()
+	//go serve()
 	openWS()
-	//serve()
 }
 
 func serve() {
@@ -82,8 +82,8 @@ func serve() {
 }
 
 const (
-	// DefaultPort describes the port the application will use if no dedicated port
-	// is defined as an environment variable
+	// DefaultPort describes the port the application will use if no dedicated
+	// port is defined as an environment variable
 	DefaultPort int = 8080
 )
 
@@ -137,7 +137,7 @@ func openWS() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	u := url.URL{Scheme: "ws", Host: "192.168.0.222:8443", Path: ""}
+	u := url.URL{Scheme: "ws", Host: deconzHost + ":8443", Path: ""}
 	log.Printf("connecting to %s", u.String())
 
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -156,6 +156,13 @@ func openWS() {
 				return
 			}
 			log.Printf("recv: %s", message)
+			var e Event
+			if err := json.Unmarshal(message, &e); err != nil {
+				log.Println("parse error:", err)
+				return
+			}
+
+			handleEvent(e)
 		}
 	}()
 
@@ -180,6 +187,28 @@ func openWS() {
 			return
 		}
 	}
+}
+
+func handleEvent(e Event) {
+	switch e.EventType {
+	case "added":
+		// TODO: Implement this
+		break
+	case "changed":
+		change(e)
+		break
+	case "deleted":
+		// TODO: Implement this
+		break
+	case "scene-called":
+		// TODO: Implement this
+		break
+	}
+}
+
+func change(e Event) {
+	log.Printf("Received change event %+v\n", e)
+
 }
 
 // recordMetrics starts a runner, that will collect the metrics and place them
@@ -249,7 +278,7 @@ func collectArbitraryData(sensor Sensor, labels prometheus.Labels) {
 // return an error, if the data can not be fetched, otherwise a map of the
 // sensor data is returned, where the key is an ID, given by deconz.
 // The sensor contains only information about one metric, such as temperature
-// or air pressure. If one sensor has the capability to provide multiple 
+// or air pressure. If one sensor has the capability to provide multiple
 // data points, each of these data points are returned as one entry in the map.
 func pollSensors(url url.URL) (map[string]Sensor, error) {
 	resp, err := http.Get(url.String())
