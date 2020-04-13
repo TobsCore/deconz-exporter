@@ -88,7 +88,7 @@ var (
 	deconzPort = 0
 	port       = DefaultPort
 	token      = ""
-	verbose    = false
+	verbose    = false // The default value is set via the `flag` package
 	labels     = []string{"name", "uid", "manufacturer", "model", "type"}
 	labelsArbi = []string{"name", "manufacturer", "model"}
 	tmpMetric  = promauto.NewGaugeVec(prometheus.GaugeOpts{
@@ -129,6 +129,9 @@ var (
 	})
 )
 
+// recordMetrics starts a runner, that will collect the metrics and place them
+// in the corresponding struct, so can fetch these metrics. For this to work,
+// the sensor data are fetched every 5 seconds.
 func recordMetrics() {
 	url := url.URL{
 		Scheme: "http",
@@ -168,6 +171,11 @@ func recordMetrics() {
 	}()
 }
 
+// collectArbitraryData will collect additional information about a sensor and
+// expose it for prometheus. Such information includes:
+// battery: The sensors battery state
+// last update: The time since the last update has been retrieved
+// The labels are used by prometheus as metadata, to identify the sensor.
 func collectArbitraryData(sensor Sensor, labels prometheus.Labels) {
 	delete(labels, "type")
 	delete(labels, "uid")
@@ -184,6 +192,12 @@ func collectArbitraryData(sensor Sensor, labels prometheus.Labels) {
 	lastUpdMetric.With(labels).Set(float64(timeDiff.Seconds()))
 }
 
+// pollSensors tries to retrieve the sensor data from the given URL. It will
+// return an error, if the data can not be fetched, otherwise a map of the
+// sensor data is returned, where the key is an ID, given by deconz.
+// The sensor contains only information about one metric, such as temperature
+// or air pressure. If one sensor has the capability to provide multiple 
+// data points, each of these data points are returned as one entry in the map.
 func pollSensors(url url.URL) (map[string]Sensor, error) {
 	resp, err := http.Get(url.String())
 	if err != nil {
