@@ -230,6 +230,9 @@ func collectBatteryData(sensor Sensor, labels prometheus.Labels) {
 func timeDiff(lastUpdate string) time.Duration {
 	// Parse Date
 	format := "2006-01-02T15:04:05"
+	if lastUpdate == "none" {
+		return 0
+	}
 	lastUpdateParsed, err := time.Parse(format, lastUpdate)
 	if err != nil {
 		log.Fatalf("Failed to parse date %s, %s", lastUpdate, err)
