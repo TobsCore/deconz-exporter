@@ -53,13 +53,14 @@ func init() {
 }
 
 func evalVars() error {
-	if c.token == "" {
+	switch {
+	case c.token == "":
 		return fmt.Errorf("DECONZ_TOKEN is required")
-	} else if c.host == "" {
+	case c.host == "":
 		return fmt.Errorf("DECONZ_HOST is required")
-	} else if c.port == 0 {
+	case c.port == 0:
 		return fmt.Errorf("DECONZ_PORT is required")
-	} else if port == 0 {
+	case port == 0:
 		return fmt.Errorf("DECONZ_APP_PORT is required")
 	}
 
