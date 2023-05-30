@@ -1,6 +1,6 @@
 module github.com/tobscore/deconz-exporter
 
-go 1.13
+go 1.20
 
 require (
 	github.com/gorilla/websocket v1.4.2
