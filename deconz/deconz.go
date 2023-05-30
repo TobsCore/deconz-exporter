@@ -43,8 +43,8 @@ func Init(host string, port int, token string) (*Deconz, error) {
 }
 
 func (d *Deconz) initSensors() error {
-	url := d.apiURL("sensors")
-	resp, err := http.Get(url.String())
+	sensorsUrl := d.apiURL("sensors")
+	resp, err := http.Get(sensorsUrl.String())
 	if err != nil {
 		return err
 	}
