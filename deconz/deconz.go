@@ -101,8 +101,10 @@ func (d *Deconz) ListenToEvents() {
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
-				log.Println("read:", err)
-				return
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					log.Printf("error: %v", err)
+				}
+				break
 			}
 			log.Printf("recv: %s", message)
 			// Initialize Battery in order to detect, if it's overwritten
